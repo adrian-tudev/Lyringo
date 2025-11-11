@@ -112,7 +112,7 @@ def get_playlist_by_link(token, playlist_link):
             track_name = track.get("name")
             artist_names = [artist.get("name") for artist in track.get("artists", []) if artist.get("name")]
             all_tracks_in_playlist.append({
-                "track_name": track_name,                "artist_names": artist_names
+                "track_name": track_name, "artist_names": artist_names
             })
 
         next_url = data.get("next")
@@ -135,4 +135,11 @@ def get_random_song_from_playlist(token, playlist_link):
         return None 
     
     random_song = random.choice(all_tracks)
+
+    # Announce which song was chosen
+    track_name = random_song.get("track_name") or "Unknown track"
+    artist_names = random_song.get("artist_names", [])
+    artists = ", ".join(artist_names) if artist_names else "Unknown artist"
+    print(f"Chosen song: {track_name} - {artists}")
+
     return random_song

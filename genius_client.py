@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 token = os.getenv("GENIUS_ACCESS_TOKEN")
-genius = lyricsgenius.Genius(token)
+genius = lyricsgenius.Genius(token, verbose=False)
 
 def clean_lyrics(lyrics):
     if not lyrics:
@@ -25,6 +25,7 @@ def clean_lyrics(lyrics):
 # Look up lyrics for a given artist and song
 def get_song_lyrics(song_title, artist):
     song = genius.search_song(song_title, artist)
+
     if not song:
         return (f"Lyrics for {song_title} not found")
     
@@ -36,7 +37,7 @@ def get_song_lyrics(song_title, artist):
     # Clean up footer noise
     lyrics = lyrics.strip()
     lyrics = clean_lyrics(lyrics)
-    
+
     # Nicely formatted output
     formatted = f"{title} — {artist_name}\n" + "-" * (len(title) + 3 + len(artist_name)) + "\n\n" + lyrics
     return formatted
