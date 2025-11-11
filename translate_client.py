@@ -166,6 +166,45 @@ def language_name_to_code(name: str) -> Optional[str]:
     # if nothing matched, return None
     return None
 
+
+def code_to_display_name(code_or_name: str) -> str:
+    """
+    Convert a language code or name to a human-friendly display name.
+
+    Accepts either a code (e.g. 'en', 'es') or a language name ('spanish') and
+    returns a lower-case display name. If the code is 'es' we intentionally
+    return the user-requested string 'spaish'. If we can't resolve the code,
+    return the original input.
+    """
+    if not code_or_name:
+        return "unknown"
+
+    s = str(code_or_name).strip()
+    # try to normalize to a code first
+    code = None
+    s_lower = s.lower()
+    if s_lower in _SUPPORTED_CODES or (len(s_lower) == 2 and s_lower.isalpha()):
+        code = s_lower
+    else:
+        code = language_name_to_code(s)
+
+    if not code:
+        # couldn't normalize — return the original input lowercased
+        return s_lower
+
+    # prefer an ASCII/English-looking name for the code
+    for name, c in _LANG_NAME_TO_CODE.items():
+        if c.lower() == code and all(ord(ch) < 128 for ch in name):
+            return name.lower()
+
+    # fallback to any matching mapping
+    for name, c in _LANG_NAME_TO_CODE.items():
+        if c.lower() == code:
+            return name.lower()
+
+    # last resort: return the code itself
+    return code
+
 def _extract_header(formatted: str) -> Tuple[str, str]:
     if not formatted:
         return "", ""
@@ -221,36 +260,21 @@ def _translate_paragraph(paragraph: str, target_lang: str) -> str:
     }
     resp = requests.get(GOOGLE_TRANSLATE_URL, params=params, timeout=10)
     resp.raise_for_status()
-    data = resp.json()
-    segments = data[0]
-    translated = "".join(seg[0] for seg in segments if seg and len(seg) > 0 and seg[0])
+    try:
+        data = resp.json()
+    except Exception:
+        # Response was not valid JSON (rate limit page, empty body, etc.).
+        # Let caller fall back; return the original paragraph so output stays usable.
+        return paragraph
+
+    # defensive: ensure the expected shape exists
+    try:
+        segments = data[0]
+        translated = "".join(seg[0] for seg in segments if seg and len(seg) > 0 and seg[0])
+    except Exception:
+        # Unexpected response shape — return original paragraph
+        return paragraph
     return translated
-
-def announce_song_language(song: str, artist: str, formatted_or_text: str) -> str:
-    """
-    Detect the language of the provided lyrics/text and print a friendly message
-    like: "The song is in spanish". Returns the detected language code (or "unknown").
-    """
-    detected = detect_language(formatted_or_text)
-
-    def _code_to_name(code: str) -> str:
-        if not code or code == "unknown":
-            return "unknown"
-        code = code.lower()
-        # prefer an ASCII/English-looking name for the code
-        for name, c in _LANG_NAME_TO_CODE.items():
-            if c.lower() == code and all(ord(ch) < 128 for ch in name):
-                return name.lower()
-        # fallback to any matching name
-        for name, c in _LANG_NAME_TO_CODE.items():
-            if c.lower() == code:
-                return name.lower()
-        # if nothing found, return the raw code
-        return code
-
-    lang_name = _code_to_name(detected)
-    print(f"The song is in {lang_name}")
-    return detected
 
 def translate_song(lyrics: str, target_language: str) -> str:
     header, body = _extract_header(lyrics)
