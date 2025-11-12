@@ -5,10 +5,23 @@ import translate_client
 
 def main():
     token = spotify_client.get_token()
-    print("Welcome to Lyringo!")
-    print("Insert a Spotify playlist link: ")
+    print("+-----------------------------------------------------------------------------------+")
+    print("|                                                                                   |")
+    print("| Welcome to Lyringo!                                                               |")
+    print("|                                                                                   |")
+    print("| Learn a new language by translating your favourite songs to different languages.  |")
+    print("|                                                                                   |")
+    print("| To get started, head over to Spotify and copy the link of a playlist.             |")
+    print("|                                                                                   |")
+    print("+-----------------------------------------------------------------------------------+")
+    print("")
+    print("Paste the link here and press ENTER:")
     link = input()
-    print("Choosing a random song from your playlist...")
+    print("")
+    print("+-----------------------------------------------------------------------------------+")
+    print("|                                                                                   |")
+    print("| Choosing a random song from your playlist...                                      |")
+    print("|                                                                                   |")
     random_song = spotify_client.get_random_song_from_playlist(token, link)
     track = random_song.get("track_name")
     artists = random_song.get("artist_names", [])
@@ -27,16 +40,25 @@ def main():
         # fallback for older return shape
         formatted_lyrics = lyrics_info
 
-    if lyrics_language:
+    #if lyrics_language:
         # convert returned code/name to a friendly display name
-        display = translate_client.code_to_display_name(lyrics_language)
-        print(f"The song is in {display}")
-    else:
-        print("Song language not provided by lyrics metadata.")
-
-    print("What language do you want to translate to? ")
+        #display = translate_client.code_to_display_name(lyrics_language)
+        # print(f"The song is in {display}")
+    #else:
+        #print("Song language not provided by lyrics metadata.")
+    
+    print("")
+    print("+-----------------------------------------------------------------------------------+")
+    print("|                                                                                   |")
+    print("| What language do you want to translate the song to?                               |")
+    print("|                                                                                   |")
+    print("| e.g english, swedish, spanish...                                                  |")
+    print("|                                                                                   |")
+    print("+-----------------------------------------------------------------------------------+")
+    print("")
+    print("Type your language below: ")
     user_lang = input().strip()
-
+    print()
     # convert language name like "english" -> "en" using translate_client helper
     # convert language name like "english" -> "en" using translate_client helper
     code = translate_client.language_name_to_code(user_lang)
@@ -45,9 +67,9 @@ def main():
         if len(user_lang) == 2 and user_lang.isalpha():
             code = user_lang.lower()
         else:
-            print(f"Unknown language '{user_lang}', defaulting to English ('en').")
+            print(f"'{user_lang}' is an unknown language, defaulting to English.")
+            print("")
             code = "en"
-    print("Setting things up...")
 
     # make sure a song was actually chosen
     if not random_song:
@@ -71,10 +93,14 @@ def main():
 
     total = 0
     score = 0
-
-    print("Starting the translation game. Translate each displayed line into your chosen language.")
-    print("Leave blank to skip a line. Press Ctrl+C to quit early.")
-
+    
+    print("+-----------------------------------------------------------------------------------+")
+    print("|                                                                                   |")
+    print("| Translate each displayed line into your chosen language.                          |")
+    print("| Leave blank to skip a line.                                                       |")
+    print("| Press Ctrl+C to quit early.                                                       |")
+    print("|                                                                                   |")
+    print("+-----------------------------------------------------------------------------------+")
     for orig in lines:
         orig_strip = orig.strip()
         if not orig_strip:
@@ -82,8 +108,8 @@ def main():
             continue
 
         total += 1
-        print(f"\nOriginal: {orig_strip}")
-        answer = input("Your translation: ").strip()
+        print(f"\nOriginal:       {orig_strip}")
+        answer = input("Translate:      ").strip()
 
         # Get the expected translation from the translate client.
         try:
@@ -94,16 +120,9 @@ def main():
         # extract body in case the translator wrapped headers
         _, expected_body = translate_client._extract_header(expected_full)
 
-        if not answer:
-            print(f"Skipped. Correct: {expected_body}")
-        else:
-            if _normalize(answer) == _normalize(expected_body):
-                print("Correct!")
-                score += 1
-            else:
-                print(f"Incorrect. Correct: {expected_body}")
+        print(f"Answer:         {expected_body}")
 
-    print(f"\nGame over — score: {score}/{total} ({(score/total*100) if total else 0:.1f}%)")
+
 
 if __name__ == "__main__":
     main()
