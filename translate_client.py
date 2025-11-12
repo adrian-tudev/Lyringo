@@ -210,7 +210,14 @@ def _extract_header(formatted: str) -> Tuple[str, str]:
         return "", ""
     parts = formatted.split("\n\n", 1)
     if len(parts) == 2 and "—" in parts[0]:
-        return parts[0].strip(), parts[1].strip()
+        # The provider may include a decorative underline (e.g. a line of
+        # dashes) directly under the "Title — Artist" line. Remove any
+        # lines that consist only of punctuation/whitespace so the header
+        # becomes just the canonical title/artist string.
+        header_block = parts[0].strip()
+        header_lines = [ln for ln in header_block.splitlines() if not re.match(r'^[\-\s]+$', ln)]
+        header = header_lines[0].strip() if header_lines else header_block.splitlines()[0].strip()
+        return header, parts[1].strip()
     return "", formatted.strip()
 
 def detect_language(formatted_or_text: str) -> str:

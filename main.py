@@ -2,6 +2,8 @@ import re
 import spotify_client
 import genius_client
 import translate_client
+import requests
+import time
 
 def main():
     print("+-----------------------------------------------------------------------------------+")
@@ -12,42 +14,116 @@ def main():
     print("|                                                                                   |")
     print("+-----------------------------------------------------------------------------------+")
     print("")
-    print("There are two alternatives for selecting a song:")
+    print("+-----------------------------------------------------------------------------------+")
+    print("|                                                                                   |")
+    print("| There are two alternatives for selecting a song:                                  |")
+    print("|                                                                                   |")
+    print('| 1 - Let Lyringo choose a random song from your playlist.                          |')
+    print('| 2 - Manually search for a song.                                                   |')
+    print("|                                                                                   |")
+    print("+-----------------------------------------------------------------------------------+")
     print("")
-    print('Input: "1" - Let Lyringo choose a random song from your playlist')
-    print('Input: "2" - Manually search for a song')
-    print("")
-    choice = input("Input: ").strip()
+
+    # Keep asking until the user provides a valid choice (no default).
+    while True:
+        choice = input("Input (1 or 2): ").strip()
+        if choice in ("1", "2"):
+            break
+        print("Invalid input. Please enter 1 or 2.")
 
     if choice == "2":
         # Manual entry: ask for title and artist and construct a minimal song dict
+        print("")
+        print("+-----------------------------------------------------------------------------------+")
+        print("|                                                                                   |")
+        print("| Search for your song, and make sure to type carefully.                            |")
+        print("| A random song may be selected if your input is not recognized.                    |")
+        print("|                                                                                   |")
+        print("+-----------------------------------------------------------------------------------+")
+        print("")
         track = input("Song title: ").strip()
         artist_input = input("Artist name: ").strip()
         if not track:
             print("No song title provided. Exiting.")
             return
         primary_artist = artist_input or ""
+        print("")
         random_song = {"track_name": track, "artist_names": [primary_artist] if primary_artist else []}
+        manual_mode = True
     else:
         # Playlist flow (default)
         token = spotify_client.get_token()
-        print("")
-        print("Paste the link here and press ENTER:")
-        link = input()
-        print("")
-        print("+-----------------------------------------------------------------------------------+")
-        print("|                                                                                   |")
-        print("| Choosing a random song from your playlist...                                      |")
-        print("|                                                                                   |")
-        random_song = spotify_client.get_random_song_from_playlist(token, link)
-        track = random_song.get("track_name")
-        artists = random_song.get("artist_names", [])
-        primary_artist = artists[0] if artists else ""
+        # Prompt until a plausible Spotify playlist link/URI is provided and a song can be fetched.
+        while True:
+            print("")
+            print("+-----------------------------------------------------------------------------------+")
+            print("")
+            print("Head over to Spotify and get a playlist link.. TODO EXPLAIN STEPS")
+            print("")
+            print("+-----------------------------------------------------------------------------------+")
+            print("")
+            link = input("Link: ").strip()
+            if not link:
+                print("")
+                print("Cmon bro du måste ha link")
+                continue
+            if not ("spotify" in link and ("playlist" in link or link.startswith("spotify:"))):
+                print("Invalid Spotify playlist link. Please try again.")
+                continue
+
+            print("")
+            print("+-----------------------------------------------------------------------------------+")
+            print("|                                                                                   |")
+            print("| Choosing a random song from your playlist...                                      |")
+            print("|                                                                                   |")
+            print("+-----------------------------------------------------------------------------------+")
+            try:
+                random_song = spotify_client.get_random_song_from_playlist(token, link)
+            except Exception as e:
+                print(f"Error reading playlist: {e}")
+                print("Please check the link and your internet connection, then try again.")
+                continue
+
+            if not random_song:
+                print("Could not find a song in that playlist. Try another playlist link.")
+                continue
+
+            track = random_song.get("track_name")
+            artists = random_song.get("artist_names", [])
+            primary_artist = artists[0] if artists else ""
+            manual_mode = False
+            break
 
     # Fetch lyrics and metadata (get_song_lyrics now returns a dict with
     # keys 'formatted' and 'language'). We prefer the language reported by
     # the provider instead of doing automatic detection.
-    lyrics_info = genius_client.get_song_lyrics(track, primary_artist)
+    # Wrap the network call with retries so transient timeouts don't crash.
+    lyrics_info = None
+    max_attempts = 3
+    for attempt in range(1, max_attempts + 1):
+        try:
+            print("+-----------------------------------------------------------------------------------+")
+            print("|                                                                                   |")
+            print("| Searching for your song...                                                        |")
+            print("|                                                                                   |")
+            print("+-----------------------------------------------------------------------------------+")
+            lyrics_info = genius_client.get_song_lyrics(track, primary_artist)
+            break
+        except requests.exceptions.Timeout:
+            if attempt < max_attempts:
+                print(f"Search timed out (attempt {attempt}/{max_attempts}). Retrying...")
+                time.sleep(1.5 * attempt)
+                continue
+            else:
+                print("Search timed out after multiple attempts. Please check your internet connection and try again later.")
+                return
+        except requests.exceptions.RequestException as e:
+            print(f"Network error while searching for song: {e}")
+            return
+        except Exception as e:
+            # Unexpected error from the lyrics provider; show a friendly message.
+            print(f"Error while searching for song: {e}")
+            return
     formatted_lyrics = None
     lyrics_language = None
     if isinstance(lyrics_info, dict):
@@ -56,6 +132,25 @@ def main():
     else:
         # fallback for older return shape
         formatted_lyrics = lyrics_info
+    # Extract header (title — artist) and body once and reuse.
+    header, body = translate_client._extract_header(formatted_lyrics or "")
+
+    # If the user manually entered a song, provide clearer feedback.
+    if 'manual_mode' in locals() and manual_mode:
+        # If no lyrics/formatted output was returned, inform the user.
+        if not formatted_lyrics or not (header or body.strip()):
+            print("no song named that found")
+            return
+
+    # Display the song chosen by the program. Prefer the provider's header
+    # (which contains the canonical title and artist) when available.
+    if header:
+        display_song = header
+    else:
+        display_song = f"{track} - {primary_artist}" if primary_artist else f"{track}"
+    print("")
+    print(f"Your song is: {display_song}")
+    print("")
 
     #if lyrics_language:
         # convert returned code/name to a friendly display name
@@ -64,7 +159,6 @@ def main():
     #else:
         #print("Song language not provided by lyrics metadata.")
     
-    print("")
     print("+-----------------------------------------------------------------------------------+")
     print("|                                                                                   |")
     print("| What language do you want to translate the song to?                               |")
@@ -73,7 +167,7 @@ def main():
     print("|                                                                                   |")
     print("+-----------------------------------------------------------------------------------+")
     print("")
-    print("Type your language below: ")
+    print("Language: ")
     user_lang = input().strip()
     print()
     # convert language name like "english" -> "en" using translate_client helper
