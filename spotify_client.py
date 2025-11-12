@@ -146,3 +146,4 @@ def get_random_song_from_playlist(token, playlist_link):
     return random_song
 
 # TODO Write a function that pads Chosen song to the right width
+# TODO Add a flag when the entire song is over asking to play the game again
