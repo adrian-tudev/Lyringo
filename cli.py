@@ -1,3 +1,5 @@
+from typing import List
+
 LYRINGO_ASCII = r"""
 $$\   $$\     $$\ $$$$$$$\  $$$$$$\ $$\   $$\  $$$$$$\   $$$$$$\  
 $$ |  \$$\   $$  |$$  __$$\ \_$$  _|$$$\  $$ |$$  __$$\ $$  __$$\ 
@@ -25,17 +27,23 @@ def print_lines(n: int):
   for _ in range(n):
     print("|" + " " * (MAGIC_LEN - 2) + "|")
 
-
-def print_in_box(text: str, side_pad: int = 1, ver_pad: int = 1):
-  """
-  # Print
-  Prints ***text*** in a box
-  """
+def print_in_box(text: str | List[str], side_pad: int = 1, ver_pad: int = 1):
   print(BOX_HORIZONTAL)
   print_lines(ver_pad)
-  print(pad_line(text, side_pad, MAGIC_LEN))
+
+  if isinstance(text, str):
+    print(pad_line(text, side_pad, MAGIC_LEN))
+  else:
+    for line in text:
+      print(pad_line(line, side_pad, MAGIC_LEN))
+
   print_lines(ver_pad)
   print(BOX_HORIZONTAL)
 
 if __name__ == "__main__":
-  pass
+  lines: List[str] = [
+    "Search for your song, and make sure to type carefully.",
+    "A random song may be selected if your input is not recognized."
+  ]
+
+  print_in_box(lines)
